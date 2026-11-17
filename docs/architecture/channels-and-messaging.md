@@ -390,7 +390,8 @@ deliveries, as a task turn does (#4761). It gets the side-thread guidance and no
 agent runs one channel turn at a time over all channels: the scheduler holds the other channel lanes
 (`channel-turn`), and the channel `busy` hook starts no second assignment while one is active. The
 work of other agents does not hold it. A channel turn takes no task slot. When the provider of the
-agent runs one turn at a time (`concurrentTurns: false`), nothing runs in parallel: its chat and task
+agent runs one turn at a time (`concurrentTurns: false`, except a custom ACP agent with the
+`concurrentTurns` flavor, see `ProviderRuntime.runsConcurrentTurns`), nothing runs in parallel: its chat and task
 turns count as busy, and `ChannelService.mayDrain` holds its main lane during an active assignment. Only declared `browser` and `workspace:<path>` resources are
 serialized: the same browser, or two workspaces where one path contains the other. An empty list,
 `none`, and `host` (from an earlier version) reserve nothing. An assignment keeps the resources it

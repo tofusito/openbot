@@ -794,6 +794,8 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
         emit: (event) => this.#emit(event),
         agent: (agentId) => store.list().find((agent) => agent.id === agentId),
         defaultTaskLimit: () => this.#defaultTaskLimit(),
+        // Read late: the provider runtime is built further down this constructor.
+        runsConcurrentTurns: (agent) => this.#providers.runsConcurrentTurns(agent),
         // Read late: the drain is built further down this constructor.
         hold: (agentId, taskId) => this.#drain.taskHold(agentId, taskId),
         queued: (agentId) => {
@@ -1424,6 +1426,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
         reportMcpDrops: (provider, drops) => this.#mcp.reportDrops(provider, drops),
         logHandoffReadFailure: (provider, error) =>
           logger.warn("Could not read the work steps of an earlier provider session.", { provider, error }),
+        runsConcurrentTurns: (agent) => this.#providers.runsConcurrentTurns(agent),
       },
     });
     this.#codexIdleSessions = new CodexIdleSessions({
@@ -4069,7 +4072,8 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     if (
       providerChanged ||
       (previous &&
-        agentTaskLimit(previous, this.#defaultTaskLimit()) !== agentTaskLimit(agent, this.#defaultTaskLimit()))
+        agentTaskLimit(previous, this.#defaultTaskLimit(), this.#providers.runsConcurrentTurns(previous)) !==
+          agentTaskLimit(agent, this.#defaultTaskLimit(), this.#providers.runsConcurrentTurns(agent)))
     ) {
       this.#tasks.changed(agent.id);
       this.#drain.scheduleDrain(agent.id);
@@ -5146,8 +5150,8 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
         }),
       );
       this.#mailbox.useMessagingLane((agentId, linkId) => {
-        const provider = this.#store.providerOf(agentId);
-        return !ownChatLinks.has(linkId) && provider !== undefined && agentProviderDescriptor(provider).concurrentTurns;
+        const agent = this.#store.list().find((candidate) => candidate.id === agentId);
+        return !ownChatLinks.has(linkId) && agent !== undefined && this.#providers.runsConcurrentTurns(agent);
       });
       this.#mcp.migrateCatalogRows();
       this.channels.restoreDeliveryLinks();

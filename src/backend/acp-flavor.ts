@@ -6,7 +6,7 @@ import {
   RequestError,
   type SessionUpdate,
 } from "@agentclientprotocol/sdk";
-import { agentProviderName } from "@openbot/contracts/agent-providers";
+import { agentProviderName, customAgentIdOfModel } from "@openbot/contracts/agent-providers";
 import type { DynamicRecord } from "@openbot/contracts/runtime-values";
 import { sourceText } from "@openbot/i18n/source";
 import { type CauseCode, classifyFailure } from "@openbot/telemetry";
@@ -204,6 +204,11 @@ export interface AcpFlavor {
    * For an agent with `closeKeepsSession`, or one that shares MCP servers between its sessions.
    */
   sessionProcesses?: true;
+  /**
+   * The agent runs turns of two sessions at the same time in one process. OpenBot then runs the chat,
+   * the tasks and the channel turns of the agent in parallel, as for a provider with `concurrentTurns`.
+   */
+  concurrentTurns?: true;
   /** An agent that sends a failed prompt as answer text and ends the turn as a success. */
   sdkHarness?: {
     /** The session whose prompt failed, from a stderr line. */
@@ -935,8 +940,9 @@ const CUSTOM_AGENT_FLAVORS: Readonly<Partial<Record<string, AcpFlavor>>> = {
   // Kiro CLI (`kiro-cli acp`) stops each request to an HTTP MCP server after 120 s: its `reqwest`
   // client has a total timeout of the server's `timeout`, 120 s by default, and it ignores progress.
   // A session server cannot set that timeout, so a question card closed with "Transport closed"
-  // before the user answered (#11049).
-  "kiro-cli": { ...CUSTOM_ACP_FLAVOR, mcpToolCallLimitMs: 120_000 },
+  // before the user answered (#11049). It also runs prompts of different sessions at the same time in
+  // one process, so its chat, tasks and channel turns can overlap.
+  "kiro-cli": { ...CUSTOM_ACP_FLAVOR, mcpToolCallLimitMs: 120_000, concurrentTurns: true },
 };
 
 /**
@@ -950,6 +956,19 @@ export function customAgentFlavor(command: string): AcpFlavor {
     .toLowerCase()
     .replace(/\.(?:exe|cmd|bat)$/u, "");
   return CUSTOM_AGENT_FLAVORS[name] ?? CUSTOM_ACP_FLAVOR;
+}
+
+/**
+ * Whether the saved custom agent that `model` names runs turns of two sessions at the same time, from
+ * the flavor of its command. A model that names no saved agent gets false.
+ */
+export function customAgentRunsConcurrentTurns(
+  agents: readonly { readonly id: string; readonly command: string }[],
+  model: string,
+): boolean {
+  const id = customAgentIdOfModel(model);
+  const agent = id === null ? undefined : agents.find((saved) => saved.id === id);
+  return agent !== undefined && customAgentFlavor(agent.command).concurrentTurns === true;
 }
 
 const FAILURE_DETAIL_LIMIT = 200;

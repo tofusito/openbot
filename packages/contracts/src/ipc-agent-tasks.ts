@@ -35,13 +35,15 @@ export function isHostAgentTaskLimit(value: unknown): value is number {
 /**
  * How many tasks of the agent run a turn at the same time. A provider that runs one turn at a time
  * runs one task, and the agent's own chat waits for it. `hostDefault` is the limit of an agent that
- * has no limit of its own.
+ * has no limit of its own. `concurrentTurns` replaces the provider's answer, for a custom ACP agent
+ * that the host knows runs turns in parallel.
  */
 export function agentTaskLimit(
   agent: { provider: AgentProviderId; taskLimit?: number },
   hostDefault: number = AGENT_TASK_LIMIT_DEFAULT,
+  concurrentTurns: boolean = agentProviderDescriptor(agent.provider).concurrentTurns,
 ): number {
-  if (!agentProviderDescriptor(agent.provider).concurrentTurns) return 1;
+  if (!concurrentTurns) return 1;
   return agent.taskLimit ?? hostDefault;
 }
 
