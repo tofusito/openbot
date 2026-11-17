@@ -41,6 +41,7 @@ import { createOpenBotLogger, redactText } from "@openbot/logging";
 import { classifyFailure } from "@openbot/telemetry";
 import { classifyUserError } from "@openbot/user-errors";
 import { Deferred, Effect, Exit, Fiber, Result, Schema, Scope, Semaphore } from "effect";
+import { customAgentRunsConcurrentTurns } from "../acp-flavor";
 import { isOpenCodeInternalFailure, OPENCODE_INTERNAL_FAILURE } from "./../acp-flavor-opencode";
 import { googleSignInByOpenBot, startAcpAuthentication } from "./../acp-sign-in";
 import {
@@ -2848,6 +2849,18 @@ export class ProviderRuntime implements ProviderPort {
       return confined.client;
     }
     return this.#ownProcessFor(agent) ? null : this.clientFor(providerForAgent(agent));
+  }
+
+  /**
+   * Whether the agent runs turns of two sessions at the same time: its provider does, or it is a
+   * custom ACP agent whose command has the `concurrentTurns` flavor. It reads the saved agents, so it
+   * also answers before the agent's process starts.
+   */
+  runsConcurrentTurns(agent: { provider: AgentProvider; model: string }): boolean {
+    if (agentProviderDescriptor(agent.provider).concurrentTurns) return true;
+    return (
+      agent.provider === "acp" && customAgentRunsConcurrentTurns(savedCustomAgents(this.#credentials), agent.model)
+    );
   }
 
   /**

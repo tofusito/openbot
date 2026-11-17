@@ -179,6 +179,8 @@ export interface ThreadLifecycleHooks {
   reportMcpDrops(provider: AgentProvider, drops: readonly McpServerDrop[]): void;
   /** An earlier session whose work steps could not be read. The handoff goes without them. */
   logHandoffReadFailure(provider: AgentProvider, error: unknown): void;
+  /** Whether the agent runs turns of two sessions at the same time, also as a custom ACP agent. */
+  runsConcurrentTurns(agent: AgentSummary): boolean;
 }
 
 export interface ThreadLifecycleOptions {
@@ -1310,10 +1312,7 @@ export class ThreadLifecycle {
    */
   #runsBesideOwnChat(agent: AgentSummary, publicThreadId: string): boolean {
     if (this.#conversation.isTaskThread(publicThreadId)) return true;
-    return (
-      this.#conversation.channelForThread(publicThreadId) !== null &&
-      agentProviderDescriptor(agent.provider).concurrentTurns
-    );
+    return this.#conversation.channelForThread(publicThreadId) !== null && this.#hooks.runsConcurrentTurns(agent);
   }
 
   /** The enabled servers this agent is given. Without Computer Use the fingerprint changes, so Codex replaces the session. */

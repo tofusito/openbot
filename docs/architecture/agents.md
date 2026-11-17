@@ -612,8 +612,11 @@ not show the agent's own limit; Server Settings > General sets the host default.
 desktop apps still read and set the agent's own limit on `agent-task-limit-v1`, and the host keeps it.
 The frozen `agent-tasks-v1` wire carries 1 to 4, so the host sends a higher limit there as 4. A provider whose
 descriptor has `concurrentTurns: false` (custom ACP agents) gets 1, and its chat and tasks run one
-turn at a time. Other task messages wait with a `hold` reason: `task-limit`, `agent-restarting`,
-`usage-limit`, `server-busy`, `agent-busy` or `one-turn`. The server-wide `TurnSlots` limit is
+turn at a time. The exception is a custom ACP agent whose command has the `concurrentTurns` flavor
+(`kiro-cli`, in `CUSTOM_AGENT_FLAVORS`): `ProviderRuntime.runsConcurrentTurns` answers true for it,
+and it gets the task limit of any other agent. The answer comes from the saved agent that the model id
+names, so it holds before the agent's process starts. Other task messages wait with a `hold` reason:
+`task-limit`, `agent-restarting`, `usage-limit`, `server-busy`, `agent-busy` or `one-turn`. The server-wide `TurnSlots` limit is
 separate: `MemoryHold.turnLimit` gives the `turnLimit` that an owner or admin chose (1 to
 `HOST_TURN_LIMIT_MAX`, 128, also above the automatic value, or `"unlimited"` for no limit), else the
 memory value of a server (2, 8 or 16), else no limit on a desktop computer. Low memory still holds a new turn. Server Settings > General

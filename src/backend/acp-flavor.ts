@@ -6,7 +6,7 @@ import {
   RequestError,
   type SessionUpdate,
 } from "@agentclientprotocol/sdk";
-import { agentProviderName } from "@openbot/contracts/agent-providers";
+import { agentProviderName, customAgentIdOfModel } from "@openbot/contracts/agent-providers";
 import type { DynamicRecord } from "@openbot/contracts/runtime-values";
 import { sourceText } from "@openbot/i18n/source";
 import { type CauseCode, classifyFailure } from "@openbot/telemetry";
@@ -204,6 +204,11 @@ export interface AcpFlavor {
    * For an agent with `closeKeepsSession`, or one that shares MCP servers between its sessions.
    */
   sessionProcesses?: true;
+  /**
+   * The agent runs turns of two sessions at the same time in one process. OpenBot then runs the chat,
+   * the tasks and the channel turns of the agent in parallel, as for a provider with `concurrentTurns`.
+   */
+  concurrentTurns?: true;
   /** An agent that sends a failed prompt as answer text and ends the turn as a success. */
   sdkHarness?: {
     /** The session whose prompt failed, from a stderr line. */
@@ -918,6 +923,8 @@ const CUSTOM_AGENT_FLAVORS: Readonly<Partial<Record<string, AcpFlavor>>> = {
   // Kimi Code added as a custom agent (`kimi acp`) keeps the custom rules and the tools of its first
   // turn, as for the Kimi provider (#8931).
   kimi: { ...CUSTOM_ACP_FLAVOR, mcpToolsFixedAtStart: true },
+  // Kiro CLI (`kiro-cli acp`) runs prompts of different sessions at the same time in one process.
+  "kiro-cli": { ...CUSTOM_ACP_FLAVOR, concurrentTurns: true },
 };
 
 /**
@@ -931,6 +938,19 @@ export function customAgentFlavor(command: string): AcpFlavor {
     .toLowerCase()
     .replace(/\.(?:exe|cmd|bat)$/u, "");
   return CUSTOM_AGENT_FLAVORS[name] ?? CUSTOM_ACP_FLAVOR;
+}
+
+/**
+ * Whether the saved custom agent that `model` names runs turns of two sessions at the same time, from
+ * the flavor of its command. A model that names no saved agent gets false.
+ */
+export function customAgentRunsConcurrentTurns(
+  agents: readonly { readonly id: string; readonly command: string }[],
+  model: string,
+): boolean {
+  const id = customAgentIdOfModel(model);
+  const agent = id === null ? undefined : agents.find((saved) => saved.id === id);
+  return agent !== undefined && customAgentFlavor(agent.command).concurrentTurns === true;
 }
 
 const FAILURE_DETAIL_LIMIT = 200;
